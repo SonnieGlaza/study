@@ -10,6 +10,9 @@ from app.db import SessionLocal
 
 
 class Repository:
+    def is_bot_enabled(self) -> bool:
+        return self.get_bot_config().enabled
+
     def upsert_user(self, telegram_user_id: int, username: str, full_name: str) -> models.User:
         with SessionLocal() as session:
             user = session.scalar(select(models.User).where(models.User.telegram_user_id == telegram_user_id))
