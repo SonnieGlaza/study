@@ -35,3 +35,7 @@ class RagService:
                 )
             )
         return chunks
+
+
+# Backward-compatible alias for modules that import uppercase name.
+RAGService = RagService
