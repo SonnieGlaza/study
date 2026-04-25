@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 
-from fastapi import APIRouter, Form, Header, HTTPException, Request
+from fastapi import APIRouter, Depends, Form, Header, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
@@ -82,7 +82,7 @@ def add_material(
     return RedirectResponse(url=f"/admin/dashboard?admin_token={admin_token}", status_code=303)
 
 
-@router.get("/settings", dependencies=[_check_admin_token])
+@router.get("/settings", dependencies=[Depends(_check_admin_token)])
 def get_settings() -> dict:
     config = repo.get_bot_config()
     return {
@@ -93,19 +93,19 @@ def get_settings() -> dict:
     }
 
 
-@router.post("/bot/toggle", dependencies=[_check_admin_token])
+@router.post("/bot/toggle", dependencies=[Depends(_check_admin_token)])
 def toggle_bot(payload: AdminToggleBotRequest) -> dict[str, bool]:
     updated = repo.update_bot_config(enabled=payload.enabled)
     return {"enabled": updated.enabled}
 
 
-@router.post("/materials", dependencies=[_check_admin_token])
+@router.post("/materials", dependencies=[Depends(_check_admin_token)])
 def upload_material(payload: AdminMaterialUploadRequest) -> dict:
     item = repo.upsert_material(payload.title, payload.content, payload.source_type)
     return {"id": item.id, "title": item.title}
 
 
-@router.get("/dialogs/{telegram_user_id}", dependencies=[_check_admin_token])
+@router.get("/dialogs/{telegram_user_id}", dependencies=[Depends(_check_admin_token)])
 def read_dialogs(telegram_user_id: int) -> list[dict]:
     rows = repo.list_dialog_messages(telegram_user_id=telegram_user_id, limit=200)
     return [
@@ -114,7 +114,7 @@ def read_dialogs(telegram_user_id: int) -> list[dict]:
     ]
 
 
-@router.get("/users", dependencies=[_check_admin_token])
+@router.get("/users", dependencies=[Depends(_check_admin_token)])
 def read_users() -> list[dict]:
     users = repo.list_users(limit=500)
     result: list[dict] = []
