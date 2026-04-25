@@ -1,24 +1,22 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Header, HTTPException
-from sqlalchemy.orm import Session
+import json
+
+from fastapi import APIRouter, Form, Header, HTTPException, Request
+from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.templating import Jinja2Templates
 
 from app.config import settings
-from app.db import get_db
 from app.schemas import (
-    AdminSettingsRead,
-    AdminSettingsUpdate,
-    BotToggleRequest,
-    BotToggleResponse,
-    UserDialogRead,
+    AdminConfigUpdateRequest,
+    AdminMaterialUploadRequest,
+    AdminToggleBotRequest,
 )
-from app.services.repository import (
-    get_dialog_messages,
-    get_or_create_admin_settings,
-    update_admin_settings,
-)
+from app.services.repository import Repository
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+templates = Jinja2Templates(directory="app/admin/templates")
+repo = Repository()
 
 
 def _check_admin_token(x_admin_token: str | None = Header(default=None)) -> None:
@@ -26,34 +24,110 @@ def _check_admin_token(x_admin_token: str | None = Header(default=None)) -> None
         raise HTTPException(status_code=401, detail="Invalid admin token.")
 
 
-@router.get("/settings", response_model=AdminSettingsRead, dependencies=[Depends(_check_admin_token)])
-def read_settings(db: Session = Depends(get_db)) -> AdminSettingsRead:
-    cfg = get_or_create_admin_settings(db)
-    return AdminSettingsRead.model_validate(cfg, from_attributes=True)
+def _ensure_form_admin_token(admin_token: str) -> None:
+    if admin_token != settings.admin_api_key:
+        raise HTTPException(status_code=401, detail="Invalid admin token.")
 
 
-@router.patch("/settings", response_model=AdminSettingsRead, dependencies=[Depends(_check_admin_token)])
-def patch_settings(payload: AdminSettingsUpdate, db: Session = Depends(get_db)) -> AdminSettingsRead:
-    cfg = update_admin_settings(
-        db,
-        system_prompt=payload.system_prompt,
-        response_style=payload.response_style,
-        consultation_logic=payload.consultation_logic,
+@router.get("/dashboard", response_class=HTMLResponse)
+def dashboard(request: Request, admin_token: str) -> HTMLResponse:
+    _ensure_form_admin_token(admin_token)
+    config = repo.get_bot_config()
+    users = repo.list_users(limit=300)
+    materials = repo.list_materials(limit=300)
+    return templates.TemplateResponse(
+        "dashboard.html",
+        {
+            "request": request,
+            "admin_token": admin_token,
+            "config": config,
+            "users": users,
+            "materials": materials,
+        },
     )
-    return AdminSettingsRead.model_validate(cfg, from_attributes=True)
 
 
-@router.post("/bot/toggle", response_model=BotToggleResponse, dependencies=[Depends(_check_admin_token)])
-def toggle_bot(payload: BotToggleRequest, db: Session = Depends(get_db)) -> BotToggleResponse:
-    cfg = update_admin_settings(db, bot_enabled=payload.enabled)
-    return BotToggleResponse(enabled=cfg.bot_enabled)
+@router.post("/dashboard/config")
+def update_config(
+    admin_token: str = Form(...),
+    enabled: str = Form("off"),
+    consultation_system_prompt: str = Form(...),
+    response_style: str = Form(...),
+    personality_formula_json: str = Form(""),
+) -> RedirectResponse:
+    _ensure_form_admin_token(admin_token)
+    payload = AdminConfigUpdateRequest(
+        consultation_system_prompt=consultation_system_prompt,
+        response_style=response_style,
+        personality_formula_json=personality_formula_json or None,
+    )
+    repo.update_bot_config(
+        enabled=(enabled == "on"),
+        consultation_system_prompt=payload.consultation_system_prompt,
+        response_style=payload.response_style,
+        personality_formula_json=payload.personality_formula_json,
+    )
+    return RedirectResponse(url=f"/admin/dashboard?admin_token={admin_token}", status_code=303)
 
 
-@router.get(
-    "/dialogs/{telegram_user_id}",
-    response_model=list[UserDialogRead],
-    dependencies=[Depends(_check_admin_token)],
-)
-def read_dialogs(telegram_user_id: int, db: Session = Depends(get_db)) -> list[UserDialogRead]:
-    rows = get_dialog_messages(db, telegram_user_id=telegram_user_id, limit=200)
-    return [UserDialogRead.model_validate(row, from_attributes=True) for row in rows]
+@router.post("/dashboard/materials")
+def add_material(
+    admin_token: str = Form(...),
+    title: str = Form(...),
+    content: str = Form(...),
+    source_type: str = Form("manual"),
+) -> RedirectResponse:
+    _ensure_form_admin_token(admin_token)
+    payload = AdminMaterialUploadRequest(title=title, content=content, source_type=source_type)
+    repo.upsert_material(payload.title, payload.content, payload.source_type)
+    return RedirectResponse(url=f"/admin/dashboard?admin_token={admin_token}", status_code=303)
+
+
+@router.get("/settings", dependencies=[_check_admin_token])
+def get_settings() -> dict:
+    config = repo.get_bot_config()
+    return {
+        "enabled": config.enabled,
+        "consultation_system_prompt": config.consultation_system_prompt,
+        "response_style": config.response_style,
+        "personality_formula_json": config.personality_formula_json or "",
+    }
+
+
+@router.post("/bot/toggle", dependencies=[_check_admin_token])
+def toggle_bot(payload: AdminToggleBotRequest) -> dict[str, bool]:
+    updated = repo.update_bot_config(enabled=payload.enabled)
+    return {"enabled": updated.enabled}
+
+
+@router.post("/materials", dependencies=[_check_admin_token])
+def upload_material(payload: AdminMaterialUploadRequest) -> dict:
+    item = repo.upsert_material(payload.title, payload.content, payload.source_type)
+    return {"id": item.id, "title": item.title}
+
+
+@router.get("/dialogs/{telegram_user_id}", dependencies=[_check_admin_token])
+def read_dialogs(telegram_user_id: int) -> list[dict]:
+    rows = repo.list_dialog_messages(telegram_user_id=telegram_user_id, limit=200)
+    return [
+        {"role": row.role, "text": row.text, "created_at": row.created_at.isoformat()}
+        for row in rows
+    ]
+
+
+@router.get("/users", dependencies=[_check_admin_token])
+def read_users() -> list[dict]:
+    users = repo.list_users(limit=500)
+    result: list[dict] = []
+    for user in users:
+        result.append(
+            {
+                "telegram_id": user.telegram_id,
+                "username": user.username,
+                "full_name": user.full_name,
+                "personality_type": user.personality_type,
+                "subscription_active": user.subscription_active,
+                "subscription_tier": user.subscription_tier,
+            }
+        )
+    return result

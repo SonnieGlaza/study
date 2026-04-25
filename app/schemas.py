@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import Any
 
 from pydantic import BaseModel
 
@@ -10,6 +9,11 @@ class AdminToggleBotRequest(BaseModel):
 
 class AdminPromptUpdateRequest(BaseModel):
     consultation_system_prompt: str
+    response_style: str
+
+
+class AdminFormulaUpdateRequest(BaseModel):
+    personality_formula_json: str
 
 
 class AdminMaterialUploadRequest(BaseModel):
@@ -26,11 +30,7 @@ class UserDialogMessage(BaseModel):
 
 class UserDialogView(BaseModel):
     user_id: int
+    telegram_user_id: int
+    username: str
+    full_name: str
     messages: list[UserDialogMessage]
-
-
-class VisualizationRequest(BaseModel):
-    user_id: int
-    photo_file_id: str
-    strength: str
-    meta: dict[str, Any] | None = None

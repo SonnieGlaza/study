@@ -1,66 +1,50 @@
 from dataclasses import dataclass
 
+from app.services.personality_formula import calculate_personality
+
+QUESTION_COUNT = 20
+
 
 @dataclass(frozen=True)
-class TestResult:
+class Question:
+    number: int
+    text: str
+    options: list[str]
+
+
+@dataclass(frozen=True)
+class TestSummary:
     personality_type: str
-    title: str
-    description: str
+    summary_text: str
     interior_recommendations: str
+    title: str
 
 
-PERSONALITY_MAP = {
-    "A": "ESTP",
-    "B": "INFJ",
-    "C": "ENTJ",
-    "D": "ISFP",
-}
+QUESTIONS: list[Question] = [
+    Question(
+        number=i + 1,
+        text=f"Вопрос {i + 1}: как вы предпочитаете организовывать пространство?",
+        options=[
+            "Люблю структуру и систему",
+            "Предпочитаю гибкость и эксперименты",
+            "Ориентируюсь на эстетику и атмосферу",
+            "Ставлю практичность на первое место",
+        ],
+    )
+    for i in range(QUESTION_COUNT)
+]
 
 
-def calculate_personality(answer_codes: list[str]) -> TestResult:
-    counters = {"A": 0, "B": 0, "C": 0, "D": 0}
-    for code in answer_codes:
-        if code in counters:
-            counters[code] += 1
-    dominant = max(counters, key=counters.get) if answer_codes else "A"
-    personality = PERSONALITY_MAP[dominant]
+def question_by_number(number: int) -> Question:
+    idx = max(min(number, QUESTION_COUNT), 1) - 1
+    return QUESTIONS[idx]
 
-    if personality == "ESTP":
-        return TestResult(
-            personality_type=personality,
-            title="Динамичный реалист",
-            description="Вы любите скорость, простоту и функциональность.",
-            interior_recommendations=(
-                "Подходят тёмные оттенки, прямые линии, контрастные формы, "
-                "минимализм и функциональные решения."
-            ),
-        )
-    if personality == "INFJ":
-        return TestResult(
-            personality_type=personality,
-            title="Гармоничный стратег",
-            description="Вы цените уединение, смысл и атмосферу.",
-            interior_recommendations=(
-                "Подходят мягкие фактуры, тёплые нейтральные цвета, "
-                "натуральные материалы и уютные световые сценарии."
-            ),
-        )
-    if personality == "ENTJ":
-        return TestResult(
-            personality_type=personality,
-            title="Системный лидер",
-            description="Вы мыслите структурно и ориентированы на результат.",
-            interior_recommendations=(
-                "Подходят чёткая геометрия, премиальные материалы, "
-                "эргономичная мебель и технологичные акценты."
-            ),
-        )
-    return TestResult(
-        personality_type=personality,
-        title="Творческий эстет",
-        description="Вы чувствительны к красоте, деталям и настроению.",
-        interior_recommendations=(
-            "Подходят природные палитры, декор с характером, "
-            "живые растения и мягкое рассеянное освещение."
-        ),
+
+def summarize_result(answer_indexes: list[int], formula_override: str | None = None) -> TestSummary:
+    result = calculate_personality(answer_indexes, formula_override_json=formula_override)
+    return TestSummary(
+        personality_type=result.personality_type,
+        summary_text=result.description,
+        interior_recommendations=result.interior_recommendations,
+        title=result.title,
     )
