@@ -41,6 +41,13 @@ def _build_generation_prompt(
     return prompt
 
 
+def _arena_headers() -> dict[str, str]:
+    headers: dict[str, str] = {}
+    if settings.arena_api_key:
+        headers["Authorization"] = f"Bearer {settings.arena_api_key}"
+    return headers
+
+
 def generate_interior_image(
     input_photo_path: str, personality_type: str | None, intensity: GenerationIntensity
 ) -> GeneratedImage:
@@ -48,7 +55,7 @@ def generate_interior_image(
     output_dir = ensure_dir("storage/generated")
     output_path = output_dir / f"gen_{Path(input_photo_path).stem}_{intensity.value}.jpg"
 
-    if not settings.image_api_url or not settings.image_api_key:
+    if not settings.arena_api_url:
         output_path.write_bytes(Path(input_photo_path).read_bytes())
         return GeneratedImage(output_path=str(output_path), prompt_used=prompt, provider_job_id=None)
 
@@ -58,10 +65,11 @@ def generate_interior_image(
         "image_mime": mime,
         "prompt": prompt,
         "strength": intensity.value,
+        "mode": "image",
     }
-    headers = {"Authorization": f"Bearer {settings.image_api_key}"}
+    headers = _arena_headers()
     with httpx.Client(timeout=settings.provider_timeout_seconds) as client:
-        response = client.post(settings.image_api_url, json=payload, headers=headers)
+        response = client.post(settings.arena_api_url, json=payload, headers=headers)
         response.raise_for_status()
         data = response.json()
 
@@ -85,7 +93,7 @@ def visualize_object_on_wall(input_photo_path: str, object_name: str) -> str:
     )
     output_dir = ensure_dir("storage/consultation_generated")
     output_path = output_dir / f"{Path(input_photo_path).stem}_{object_name}.jpg"
-    if not settings.image_api_url or not settings.image_api_key:
+    if not settings.arena_api_url:
         output_path.write_bytes(Path(input_photo_path).read_bytes())
         return str(output_path)
 
@@ -95,10 +103,11 @@ def visualize_object_on_wall(input_photo_path: str, object_name: str) -> str:
         "image_mime": mime,
         "prompt": prompt,
         "strength": "medium",
+        "mode": "image",
     }
-    headers = {"Authorization": f"Bearer {settings.image_api_key}"}
+    headers = _arena_headers()
     with httpx.Client(timeout=settings.provider_timeout_seconds) as client:
-        response = client.post(settings.image_api_url, json=payload, headers=headers)
+        response = client.post(settings.arena_api_url, json=payload, headers=headers)
         response.raise_for_status()
         data = response.json()
     if data.get("output_image_base64"):
@@ -110,27 +119,42 @@ def visualize_object_on_wall(input_photo_path: str, object_name: str) -> str:
 
 def ask_consultant(question: str, image_path: str | None = None, personality_type: str | None = None) -> str:
     rag = RAGService()
-    snippets = rag.search(question)
-    context = "\n".join(f"- {s}" for s in snippets) if snippets else "Нет релевантного контекста."
+    snippets = []
+    try:
+        import asyncio
 
-    if not settings.llm_api_url or not settings.llm_api_key:
+        snippets = asyncio.run(rag.retrieve(question))
+    except RuntimeError:
+        snippets = []
+    context_text = (
+        "\n".join(f"- [{item.source_title}] {item.snippet}" for item in snippets)
+        if snippets
+        else "Нет релевантного контекста."
+    )
+
+    if not settings.arena_api_url:
         prefix = f"С учетом психотипа {personality_type}. " if personality_type else ""
         image_note = " Фото проанализировано." if image_path else ""
         return (
             f"{prefix}Рекомендация: {question}.{image_note}\n"
-            f"Контекст базы знаний:\n{context}"
+            f"Контекст базы знаний:\n{context_text}"
         )
 
     payload = {
         "system_prompt": settings.consultant_system_prompt_default,
         "question": question,
         "personality_type": personality_type,
-        "knowledge_context": snippets,
+        "knowledge_context": [item.snippet for item in snippets],
         "response_style": "professional-friendly",
+        "mode": "text",
     }
-    headers = {"Authorization": f"Bearer {settings.llm_api_key}"}
+    if image_path:
+        image_b64, mime = _encode_image(image_path)
+        payload["image_base64"] = image_b64
+        payload["image_mime"] = mime
+    headers = _arena_headers()
     with httpx.Client(timeout=settings.provider_timeout_seconds) as client:
-        response = client.post(settings.llm_api_url, json=payload, headers=headers)
+        response = client.post(settings.arena_api_url, json=payload, headers=headers)
         response.raise_for_status()
         data = response.json()
-    return data.get("answer", "Не удалось получить ответ от LLM-провайдера.")
+    return data.get("answer", data.get("text", "Не удалось получить ответ от AI-провайдера."))

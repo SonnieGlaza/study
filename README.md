@@ -40,18 +40,26 @@
 - `plan` (string),
 - `expires_at` (ISO datetime).
 
-### AI визуализация
+### Arena AI (единый провайдер)
 
-`IMAGE_API_URL` ожидает POST JSON:
-- `image_base64`, `image_mime`, `prompt`, `strength`
-Ответ:
-- `output_image_base64`,
+По умолчанию проект использует единый endpoint:
+- `ARENA_API_URL=https://arena.ai/image`
+
+Используется единый POST JSON с полем режима:
+- `mode=image_edit` для визуализаций интерьера,
+- `mode=text` для консультационных текстов,
+- `mode=agent` для agent-like задач.
+
+Базовые поля запроса:
+- `prompt`,
+- `image_base64` и `image_mime` (если есть входное фото),
+- `strength` (для visual режимов),
+- `metadata` (произвольные служебные данные).
+
+Ожидаемые поля ответа:
+- `output_image_base64` (для изображений),
+- `answer` (для текста/агента),
 - `job_id` (optional).
-
-### LLM/RAG
-
-- `RAG_API_URL`: POST `{query, top_k}` -> `results[]`.
-- `LLM_API_URL`: POST с system prompt, question, personality, context -> `answer`.
 
 ## Запуск
 

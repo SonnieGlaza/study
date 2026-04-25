@@ -16,6 +16,8 @@ class Settings(BaseSettings):
     llm_api_key: str = Field(default="", alias="LLM_API_KEY")
     image_api_url: str = Field(default="", alias="IMAGE_API_URL")
     image_api_key: str = Field(default="", alias="IMAGE_API_KEY")
+    arena_api_url: str = Field(default="https://arena.ai/image", alias="ARENA_API_URL")
+    arena_api_key: str = Field(default="", alias="ARENA_API_KEY")
     rag_api_url: str = Field(default="", alias="RAG_API_URL")
     rag_api_key: str = Field(default="", alias="RAG_API_KEY")
     media_root: str = Field(default="storage", alias="MEDIA_ROOT")
