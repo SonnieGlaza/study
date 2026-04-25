@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Admin Dashboard</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 24px; color: #111; }
+    h1, h2 { margin-bottom: 8px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    .card { border: 1px solid #ddd; border-radius: 8px; padding: 16px; }
+    label { display: block; margin-top: 8px; font-weight: 600; }
+    input, textarea, select, button { width: 100%; margin-top: 4px; padding: 8px; box-sizing: border-box; }
+    textarea { min-height: 120px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border: 1px solid #ddd; padding: 8px; font-size: 14px; }
+    .muted { color: #666; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <h1>Админ-панель интерьерного бота</h1>
+  <p class="muted">Токен авторизации передается query-параметром <code>?token=...</code>.</p>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Управление ботом и стилем ответов</h2>
+      <form method="post" action="/admin/ui/config?token={{ token }}">
+        <label>Бот включен</label>
+        <select name="enabled">
+          <option value="true" {% if config.enabled %}selected{% endif %}>Да</option>
+          <option value="false" {% if not config.enabled %}selected{% endif %}>Нет</option>
+        </select>
+
+        <label>Стиль ответов</label>
+        <input name="response_style" value="{{ config.response_style }}" />
+
+        <label>Системный промпт консультанта</label>
+        <textarea name="consultation_system_prompt">{{ config.consultation_system_prompt }}</textarea>
+
+        <label>JSON-формула психотипа</label>
+        <textarea name="personality_formula_json">{{ config.personality_formula_json }}</textarea>
+
+        <button type="submit">Сохранить настройки</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>Загрузка материалов базы знаний</h2>
+      <form method="post" action="/admin/ui/materials?token={{ token }}">
+        <label>Название</label>
+        <input name="title" />
+
+        <label>Тип источника</label>
+        <input name="source_type" value="manual" />
+
+        <label>Контент</label>
+        <textarea name="content"></textarea>
+
+        <button type="submit">Добавить материал</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top: 24px;">
+    <h2>Пользователи</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Telegram ID</th>
+          <th>Имя</th>
+          <th>Психотип</th>
+          <th>Подписка</th>
+          <th>Тариф</th>
+          <th>Обновлен</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for user in users %}
+        <tr>
+          <td>{{ user.telegram_id }}</td>
+          <td>{{ user.full_name }}</td>
+          <td>{{ user.personality_type or "-" }}</td>
+          <td>{{ "active" if user.subscription_active else "inactive" }}</td>
+          <td>{{ user.subscription_tier }}</td>
+          <td>{{ user.updated_at }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card" style="margin-top: 24px;">
+    <h2>Последние материалы</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Название</th>
+          <th>Источник</th>
+          <th>Создан</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for item in materials %}
+        <tr>
+          <td>{{ item.id }}</td>
+          <td>{{ item.title }}</td>
+          <td>{{ item.source_type }}</td>
+          <td>{{ item.created_at }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</body>
+</html>
