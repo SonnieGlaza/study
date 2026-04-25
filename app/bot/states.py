@@ -1,8 +1,12 @@
 from aiogram.fsm.state import State, StatesGroup
 
 
-class DialogStates(StatesGroup):
+class UserFlow(StatesGroup):
     testing = State()
-    consultation = State()
-    awaiting_room_photo = State()
-    awaiting_visual_intensity = State()
+    waiting_photo = State()
+    waiting_generation_intensity = State()
+    waiting_consult_question = State()
+
+
+# Backward-compatible alias.
+DialogStates = UserFlow
