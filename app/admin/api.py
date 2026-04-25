@@ -8,7 +8,7 @@ from fastapi.templating import Jinja2Templates
 
 from app.config import settings
 from app.schemas import (
-    AdminConfigUpdateRequest,
+    AdminPromptUpdateRequest,
     AdminMaterialUploadRequest,
     AdminToggleBotRequest,
 )
@@ -56,16 +56,15 @@ def update_config(
     personality_formula_json: str = Form(""),
 ) -> RedirectResponse:
     _ensure_form_admin_token(admin_token)
-    payload = AdminConfigUpdateRequest(
+    payload = AdminPromptUpdateRequest(
         consultation_system_prompt=consultation_system_prompt,
         response_style=response_style,
-        personality_formula_json=personality_formula_json or None,
     )
     repo.update_bot_config(
         enabled=(enabled == "on"),
         consultation_system_prompt=payload.consultation_system_prompt,
         response_style=payload.response_style,
-        personality_formula_json=payload.personality_formula_json,
+        personality_formula_json=personality_formula_json or None,
     )
     return RedirectResponse(url=f"/admin/dashboard?admin_token={admin_token}", status_code=303)
 

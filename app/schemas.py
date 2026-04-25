@@ -16,6 +16,12 @@ class AdminFormulaUpdateRequest(BaseModel):
     personality_formula_json: str
 
 
+class AdminConfigUpdateRequest(BaseModel):
+    consultation_system_prompt: str
+    response_style: str
+    personality_formula_json: str | None = None
+
+
 class AdminMaterialUploadRequest(BaseModel):
     title: str
     content: str
