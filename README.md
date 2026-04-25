@@ -68,7 +68,22 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -e .
 cp .env.example .env
-uvicorn app.main:app --reload
+python3 -m uvicorn app.main:app --reload
+```
+
+### Запуск в контейнере
+
+Если контейнер запускает приложение напрямую, используйте:
+
+```bash
+pip install -r requirements.txt
+python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+Если у вас есть отдельная команда запуска в платформе деплоя, укажите именно:
+
+```bash
+python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
 ## Админка
