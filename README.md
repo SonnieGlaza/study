@@ -43,7 +43,7 @@
 ### Arena AI (единый провайдер)
 
 По умолчанию проект использует единый endpoint:
-- `ARENA_API_URL=https://arena.ai/image`
+- `ARENA_API_URL=https://arena.ai/`
 
 Используется единый POST JSON с полем режима:
 - `mode=image_edit` для визуализаций интерьера,
