@@ -40,3 +40,10 @@ class UserDialogView(BaseModel):
     username: str
     full_name: str
     messages: list[UserDialogMessage]
+
+
+class PersonalityResult(BaseModel):
+    personality_type: str
+    personality_description: str
+    interior_recommendations: str
+    title: str
