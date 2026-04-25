@@ -5,6 +5,12 @@ from pathlib import Path
 from uuid import uuid4
 
 
+def ensure_dir(path: str) -> Path:
+    directory = Path(path)
+    directory.mkdir(parents=True, exist_ok=True)
+    return directory
+
+
 class FileStorage:
     def __init__(self, root: Path) -> None:
         self.root = root
