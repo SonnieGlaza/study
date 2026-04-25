@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from pathlib import Path
 
 from aiogram import Bot, Dispatcher
 from fastapi import FastAPI
@@ -13,6 +14,9 @@ from app.config import settings
 from app.db import Base, engine
 
 logger = logging.getLogger(__name__)
+
+# Ensure media directory exists before StaticFiles mount.
+Path(settings.media_root).mkdir(parents=True, exist_ok=True)
 
 app = FastAPI(title="Interior Telegram Bot + Admin")
 app.include_router(admin_router)
